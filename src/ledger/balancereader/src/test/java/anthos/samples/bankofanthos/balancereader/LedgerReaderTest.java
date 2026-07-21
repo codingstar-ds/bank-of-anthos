@@ -170,6 +170,10 @@ class LedgerReaderTest {
         Thread.sleep(POLL_MS * 3L);
         assertTrue(ledgerReader.isAlive());
 
+        // interrupting only aborts the current sleep; the loop keeps polling
+        interruptBackgroundThread();
+        assertTrue(ledgerReader.isAlive());
+
         // drop the remote id below the local id so the loop exits and the
         // test does not leak a running thread
         remoteId.set(0L);
@@ -181,6 +185,13 @@ class LedgerReaderTest {
         Thread thread = (Thread) getField(ledgerReader, "backgroundThread");
         if (thread != null) {
             thread.join(THREAD_JOIN_TIMEOUT_MS);
+        }
+    }
+
+    private void interruptBackgroundThread() throws Exception {
+        Thread thread = (Thread) getField(ledgerReader, "backgroundThread");
+        if (thread != null) {
+            thread.interrupt();
         }
     }
 
