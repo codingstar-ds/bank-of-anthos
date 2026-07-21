@@ -19,6 +19,7 @@ package anthos.samples.bankofanthos.balancereader;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -158,17 +159,20 @@ class LedgerReaderTest {
     @DisplayName("When the remote id keeps matching the local id, the thread stays "
         + "alive and polling until interrupted")
     void backgroundThreadStaysAliveWhenRemoteIdMatches() throws Exception {
-        // init reads 4, thread keeps reading 4 (== local) => never exits on its own
-        when(dbRepo.latestTransactionId()).thenReturn(4L);
+        // The stub reads from an atomic so the main thread can change the answer
+        // without re-stubbing while the background thread is invoking the mock.
+        // Starts at 4 (== local id => thread keeps polling and stays alive).
+        AtomicLong remoteId = new AtomicLong(4L);
+        when(dbRepo.latestTransactionId()).thenAnswer(invocation -> remoteId.get());
 
         ledgerReader.startWithCallback(mock(LedgerReaderCallback.class));
         // give the thread time to run a few poll cycles
         Thread.sleep(POLL_MS * 3L);
         assertTrue(ledgerReader.isAlive());
 
-        // make the remote id drop below the local id so the loop exits and the
+        // drop the remote id below the local id so the loop exits and the
         // test does not leak a running thread
-        when(dbRepo.latestTransactionId()).thenReturn(0L);
+        remoteId.set(0L);
         joinBackgroundThread();
         assertFalse(ledgerReader.isAlive());
     }
