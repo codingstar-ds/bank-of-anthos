@@ -166,21 +166,17 @@ class LedgerReaderTest {
         Thread.sleep(POLL_MS * 3L);
         assertTrue(ledgerReader.isAlive());
 
-        // interrupt so the test does not leak a running thread
-        interruptBackgroundThread();
+        // make the remote id drop below the local id so the loop exits and the
+        // test does not leak a running thread
+        when(dbRepo.latestTransactionId()).thenReturn(0L);
+        joinBackgroundThread();
+        assertFalse(ledgerReader.isAlive());
     }
 
     private void joinBackgroundThread() throws Exception {
         Thread thread = (Thread) getField(ledgerReader, "backgroundThread");
         if (thread != null) {
             thread.join(THREAD_JOIN_TIMEOUT_MS);
-        }
-    }
-
-    private void interruptBackgroundThread() throws Exception {
-        Thread thread = (Thread) getField(ledgerReader, "backgroundThread");
-        if (thread != null) {
-            thread.interrupt();
         }
     }
 
